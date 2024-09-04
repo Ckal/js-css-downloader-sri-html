@@ -3,6 +3,7 @@ import re
 import requests
 import hashlib
 import shutil
+import base64
 from urllib.parse import urlparse
 from pathlib import Path
 
@@ -44,7 +45,8 @@ def calculate_sri_hash(file_path):
     with open(file_path, 'rb') as f:
         while (chunk := f.read(8192)):
             h.update(chunk)
-    return f'sha512-{h.hexdigest()}'
+    # Base64 encode the hash and strip padding
+    return f'sha512-{base64.b64encode(h.digest()).decode("utf-8").rstrip("=")}'
 
 def download_file(url, save_dir):
     if url.startswith(('http://', 'https://')):
@@ -75,14 +77,14 @@ def process_html(html):
         url = m.group(1)
         path, sri_hash = download_file(url, JS_DIR)
         if path:
-            return f'<script src="assets\{os.path.relpath(path, BASE_DIR)}" integrity="{sri_hash}" crossorigin="anonymous"></script>'
+            return f'<script type="text/javascript" src="./{os.path.relpath(path, JS_DIR).replace(os.sep, "/")}" integrity="{sri_hash}" crossorigin="anonymous"></script>'
         return m.group(0)
     
     def replace_link_tag(m):
         url = m.group(1)
         path, sri_hash = download_file(url, CSS_DIR)
         if path:
-            return f'<link rel="stylesheet" href="assets\{os.path.relpath(path, BASE_DIR)}" integrity="{sri_hash}" crossorigin="anonymous">'
+            return f'<link rel="stylesheet" href="./{os.path.relpath(path, CSS_DIR).replace(os.sep, "/")}" integrity="{sri_hash}" crossorigin="anonymous">'
         return m.group(0)
 
     html = script_re.sub(replace_script_tag, html)
